@@ -1,0 +1,76 @@
+# Web Scraping.......
+import requests
+from bs4 import BeautifulSoup
+import csv
+
+def send_request(url, headers):
+    try:
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
+        return response.content
+    except requests.exceptions.RequestException as e:
+        print(f"Error sending request: {e}")
+        return None
+
+def parse_html(html):
+    soup = BeautifulSoup(html, "html.parser")
+    return soup
+
+def extract_product_info(soup):
+    product_info = {}
+    try:
+        title = soup.find("span", attrs={"id": 'productTitle'})
+        product_info["title"] = title.string.strip().replace(',', '')
+    except AttributeError:
+        product_info["title"] = "NA"
+
+    try:
+        price = soup.find("span", attrs={'id': 'priceblock_ourprice'})
+        product_info["price"] = price.string.strip().replace(',', '')
+    except AttributeError:
+        product_info["price"] = "NA"
+
+    try:
+        rating = soup.find("i", attrs={'class': 'a-icon a-icon-star a-star-4-5'})
+        product_info["rating"] = rating.string.strip().replace(',', '')
+    except AttributeError:
+        try:
+            rating = soup.find("span", attrs={'class': 'a-icon-alt'})
+            product_info["rating"] = rating.string.strip().replace(',', '')
+        except:
+            product_info["rating"] = "NA"
+
+    try:
+        review_count = soup.find("span", attrs={'id': 'acrCustomerReviewText'})
+        product_info["review_count"] = review_count.string.strip().replace(',', '')
+    except AttributeError:
+        product_info["review_count"] = "NA"
+
+    try:
+        available = soup.find("div", attrs={'id': 'availability'}).find("span")
+        product_info["available"] = available.string.strip().replace(',', '')
+    except AttributeError:
+        product_info["available"] = "NA"
+
+    return product_info
+
+def write_to_csv(product_info, csv_file):
+    with open(csv_file, "a", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow([product_info["title"], product_info["price"], product_info["rating"], product_info["review_count"], product_info["available"]])
+
+def main():
+    headers = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/44.0.2403.157 Safari/537.36", "Accept-Language": "en-US, en;q=0.5"}
+    csv_file = "out.csv"
+
+    with open("url.txt", "r") as f:
+        for url in f.readlines():
+            url = url.strip()
+            html = send_request(url, headers)
+            if html:
+                soup = parse_html(html)
+                product_info = extract_product_info(soup)
+                write_to_csv(product_info, csv_file)
+
+if __name__ == '__main__':
+    main()
